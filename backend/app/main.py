@@ -5,6 +5,8 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.auth_routes import router as auth_router
 from app.api.v1.health import router as health_router
+from app.api.v1.review_routes import router as review_router
+from app.api.v1.team_routes import router as team_router
 from app.core.config import settings
 from app.db.mongo import close_mongo_client, get_mongo_client
 from app.db.mysql import Base, engine
@@ -14,12 +16,21 @@ from app.models import sql_models  # noqa: F401
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    Base.metadata.create_all(bind=engine)
-    mongo_client = get_mongo_client()
-    await mongo_client.admin.command("ping")
-    redis_client = get_redis()
-    await redis_client.ping()
-    print("All database connections established")
+    try:
+        Base.metadata.create_all(bind=engine)
+        mongo_client = get_mongo_client()
+        await mongo_client.admin.command("ping")
+        print("MongoDB connection established")
+    except Exception as exc:  # noqa: BLE001
+        print(f"MongoDB unavailable during startup: {exc}")
+
+    try:
+        redis_client = get_redis()
+        await redis_client.ping()
+        print("Redis connection established")
+    except Exception as exc:  # noqa: BLE001
+        print(f"Redis unavailable during startup: {exc}")
+
     yield
     close_mongo_client()
     await close_redis()
@@ -41,3 +52,5 @@ app.add_middleware(
 )
 app.include_router(health_router, prefix="/api/v1")
 app.include_router(auth_router, prefix="/api/v1")
+app.include_router(review_router, prefix="/api/v1")
+app.include_router(team_router, prefix="/api/v1")

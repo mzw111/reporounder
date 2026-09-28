@@ -13,7 +13,13 @@ def get_mongo_client() -> AsyncIOMotorClient:
 
 
 def get_mongo_db() -> AsyncIOMotorDatabase:
-    return get_mongo_client()[settings.mongo_db]
+    database = get_mongo_client()[settings.mongo_db]
+    return database
+
+
+async def ensure_review_indexes() -> None:
+    db = get_mongo_db()
+    await db.reviews.create_index([("user_id", 1), ("created_at", -1), ("status", 1)])
 
 
 def close_mongo_client() -> None:

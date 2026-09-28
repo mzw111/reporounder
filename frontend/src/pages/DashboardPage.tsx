@@ -1,22 +1,8 @@
+import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { DashboardLayout } from '../components/DashboardLayout';
-
-// ── Mock data — replaced with real API data on Day 6 ──────────────────────
-const MOCK_REVIEWS = [
-  { id: '1', title: 'feat/auth-service refactor',    date: '2h ago',   findings: 8,  severity: 'critical', status: 'complete' },
-  { id: '2', title: 'fix/websocket-reconnect',       date: '5h ago',   findings: 3,  severity: 'warning',  status: 'complete' },
-  { id: '3', title: 'chore/dependency-updates',      date: 'Yesterday', findings: 1,  severity: 'info',     status: 'complete' },
-  { id: '4', title: 'feat/redis-task-queue',         date: 'Yesterday', findings: 0,  severity: 'info',     status: 'pending'  },
-  { id: '5', title: 'docs/api-reference-update',     date: '3 days ago', findings: 2, severity: 'warning',  status: 'complete' },
-];
-
-const MOCK_RECENT_FINDINGS = [
-  { id: 'f1', severity: 'critical', message: 'SQL injection risk in user query builder',          line: 142, file: 'auth/queries.py' },
-  { id: 'f2', severity: 'warning',  message: 'Unbounded Redis connection pool may exhaust memory', line: 38,  file: 'db/redis_client.py' },
-  { id: 'f3', severity: 'warning',  message: 'JWT expiry not validated on refresh path',           line: 67,  file: 'core/security.py' },
-  { id: 'f4', severity: 'info',     message: 'Function exceeds cyclomatic complexity threshold',   line: 201, file: 'services/review.py' },
-];
+import { listReviews } from '../lib/reviewApi';
+import { getMyTeams } from '../lib/teamApi';
 
 const SEVERITY_COLOUR: Record<string, string> = {
   critical: 'text-critical border-critical/30 bg-critical/10',
@@ -32,14 +18,33 @@ const SEVERITY_DOT: Record<string, string> = {
 
 export function DashboardPage() {
   const { user } = useAuth();
+  const { data: reviews = [], isLoading, isError } = useQuery({
+    queryKey: ['reviews'],
+    queryFn: listReviews,
+  });
+  const { data: teams = [] } = useQuery({ queryKey: ['teams'], queryFn: getMyTeams });
 
-  const totalReviews  = MOCK_REVIEWS.length;
-  const totalFindings = MOCK_REVIEWS.reduce((s, r) => s + r.findings, 0);
-  const criticalCount = MOCK_RECENT_FINDINGS.filter(f => f.severity === 'critical').length;
-  const completeCount = MOCK_REVIEWS.filter(r => r.status === 'complete').length;
+  const totalReviews = reviews.length;
+  const totalFindings = reviews.reduce((sum, review) => sum + review.findings.length, 0);
+  const criticalCount = reviews.reduce(
+    (sum, review) => sum + review.findings.filter((finding) => finding.severity === 'critical').length,
+    0,
+  );
+  const completeCount = reviews.filter((review) => review.status === 'complete').length;
+  const recentFindings = reviews
+    .flatMap((review) => review.findings.map((finding) => ({ ...finding, reviewId: review.id, reviewTitle: review.title })))
+    .slice(0, 4);
+
+  if (isLoading) {
+    return <div className="text-on-surface">Loading reviews...</div>;
+  }
+
+  if (isError) {
+    return <div className="text-on-surface">Unable to load reviews.</div>;
+  }
 
   return (
-    <DashboardLayout>
+    <>
       <div className="flex flex-col w-full gap-space-lg">
 
         {/* ── Welcome banner ── */}
@@ -47,13 +52,17 @@ export function DashboardPage() {
           <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-surface-container-highest/25 blur-3xl pointer-events-none" />
           <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-space-md">
             <div className="flex flex-col gap-space-xs">
-              <div className="flex items-center gap-space-sm flex-wrap">
+                <div className="flex items-center gap-space-sm flex-wrap">
                 <h1 className="text-headline-lg font-semibold text-primary tracking-tight">
                   Welcome back, {user?.display_name}
                 </h1>
                 <div className="flex items-center gap-space-xs bg-surface-container border border-outline-variant/40 px-space-sm py-1 rounded-full">
                   <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse-dot" />
                   <span className="font-mono text-code-sm text-primary">AI pipeline active</span>
+                </div>
+                <div className="flex items-center gap-space-xs bg-surface-container border border-outline-variant/40 px-space-sm py-1 rounded-full">
+                  <span className="material-symbols-outlined text-sm text-primary">group</span>
+                  <span className="font-mono text-code-sm text-on-surface-variant">{teams.length} team{teams.length === 1 ? '' : 's'}</span>
                 </div>
               </div>
               <p className="text-body-md text-on-surface-variant max-w-xl">
@@ -78,7 +87,7 @@ export function DashboardPage() {
             { label: 'Total reviews',     value: totalReviews,  unit: 'submitted',  icon: 'code_blocks', trend: '+2 this week' },
             { label: 'Findings caught',   value: totalFindings, unit: 'total',      icon: 'bug_report',  trend: 'across all PRs' },
             { label: 'Critical issues',   value: criticalCount, unit: 'open',       icon: 'security',    trend: 'need attention' },
-            { label: 'Reviews complete',  value: completeCount, unit: 'analysed',   icon: 'verified',    trend: `${Math.round(completeCount / totalReviews * 100)}% success rate` },
+            { label: 'Team workspaces',   value: teams.length, unit: 'available',  icon: 'group',       trend: 'shared review spaces' },
           ].map(({ label, value, unit, icon, trend }) => (
             <div key={label} className="spotlight-card relative overflow-hidden rounded-xl bg-surface-container-low p-space-md border border-outline-variant/30 shadow-md hover:border-outline-variant/60 transition-all">
               <div className="flex items-center justify-between mb-space-sm">
@@ -117,7 +126,12 @@ export function DashboardPage() {
             </div>
 
             <div className="flex flex-col gap-space-sm">
-              {MOCK_REVIEWS.map(review => (
+              {reviews.map(review => {
+                const highestSeverity = review.findings.length
+                  ? [...review.findings].sort((a, b) => ['info', 'low', 'medium', 'high', 'critical'].indexOf(a.severity) - ['info', 'low', 'medium', 'high', 'critical'].indexOf(b.severity)).at(-1)?.severity ?? 'info'
+                  : 'info';
+
+                return (
                 <Link
                   key={review.id}
                   to={`/reviews/${review.id}`}
@@ -130,7 +144,6 @@ export function DashboardPage() {
                     <div className="flex flex-col min-w-0">
                       <div className="flex items-center gap-space-sm flex-wrap mb-1">
                         <span className="font-mono text-code-lg text-primary font-medium truncate">{review.title}</span>
-                        {/* Status badge */}
                         <span className={`font-mono text-label-sm px-2 py-0.5 rounded border flex items-center gap-1 ${
                           review.status === 'pending'
                             ? 'bg-surface-container-highest border-outline-variant/40 text-on-surface-variant'
@@ -148,27 +161,27 @@ export function DashboardPage() {
                       <div className="flex items-center gap-space-md font-mono text-code-sm text-on-surface-variant">
                         <span className="flex items-center gap-1">
                           <span className="material-symbols-outlined text-sm">schedule</span>
-                          {review.date}
+                          {new Date(review.created_at).toLocaleDateString()}
                         </span>
-                        {review.findings > 0 && (
+                        {review.findings.length > 0 && (
                           <span className="flex items-center gap-1">
-                            <span className={`w-1.5 h-1.5 rounded-full ${SEVERITY_DOT[review.severity]}`} />
-                            {review.findings} finding{review.findings !== 1 ? 's' : ''}
+                            <span className={`w-1.5 h-1.5 rounded-full ${SEVERITY_DOT[highestSeverity] ?? 'bg-info'}`} />
+                            {review.findings.length} finding{review.findings.length !== 1 ? 's' : ''}
                           </span>
                         )}
                       </div>
                     </div>
                   </div>
                   <div className="flex items-center gap-space-xs flex-shrink-0">
-                    {review.findings > 0 && (
-                      <span className={`font-mono text-label-sm px-2 py-0.5 rounded border ${SEVERITY_COLOUR[review.severity]}`}>
-                        {review.severity}
+                    {review.findings.length > 0 && (
+                      <span className={`font-mono text-label-sm px-2 py-0.5 rounded border ${SEVERITY_COLOUR[highestSeverity] ?? SEVERITY_COLOUR.info}`}>
+                        {highestSeverity}
                       </span>
                     )}
                     <span className="material-symbols-outlined text-on-surface-variant group-hover:text-on-surface text-lg transition-colors">chevron_right</span>
                   </div>
                 </Link>
-              ))}
+              )})}
             </div>
           </div>
 
@@ -180,25 +193,27 @@ export function DashboardPage() {
                 <h2 className="text-headline-sm font-semibold text-on-surface">Recent findings</h2>
               </div>
               <span className="font-mono text-label-sm bg-primary text-on-primary px-space-xs py-0.5 rounded font-bold">
-                {MOCK_RECENT_FINDINGS.length} open
+                {recentFindings.length} open
               </span>
             </div>
 
             <div className="flex flex-col gap-space-md">
-              {MOCK_RECENT_FINDINGS.map(finding => (
-                <div key={finding.id} className="spotlight-card p-space-md rounded-xl bg-surface-container border border-outline-variant/30 flex flex-col gap-space-xs">
+              {recentFindings.length === 0 ? (
+                <p className="text-body-sm text-on-surface-variant">No findings yet.</p>
+              ) : recentFindings.map((finding) => (
+                <Link key={`${finding.reviewId}-${finding.line_number}`} to={`/reviews/${finding.reviewId}`} className="spotlight-card p-space-md rounded-xl bg-surface-container border border-outline-variant/30 flex flex-col gap-space-xs">
                   <div className="flex items-center justify-between">
-                    <span className={`font-mono text-label-sm px-2 py-0.5 rounded border uppercase ${SEVERITY_COLOUR[finding.severity]}`}>
+                    <span className={`font-mono text-label-sm px-2 py-0.5 rounded border uppercase ${SEVERITY_COLOUR[finding.severity] ?? SEVERITY_COLOUR.info}`}>
                       {finding.severity}
                     </span>
-                    <span className="font-mono text-code-sm text-on-surface-variant">:{finding.line}</span>
+                    <span className="font-mono text-code-sm text-on-surface-variant">:{finding.line_number}</span>
                   </div>
                   <p className="text-body-sm text-on-surface leading-snug">{finding.message}</p>
                   <div className="flex items-center gap-1 font-mono text-code-sm text-on-surface-variant">
                     <span className="material-symbols-outlined text-sm">code</span>
-                    <span className="truncate">{finding.file}</span>
+                    <span className="truncate">{finding.reviewTitle}</span>
                   </div>
-                </div>
+                </Link>
               ))}
             </div>
 
@@ -212,6 +227,6 @@ export function DashboardPage() {
 
         </div>
       </div>
-    </DashboardLayout>
+    </>
   );
 }

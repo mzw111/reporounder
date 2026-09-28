@@ -28,6 +28,13 @@ class Settings(BaseSettings):
     # Redis
     redis_url: str = "redis://localhost:6379/0"
 
+    # AI
+    ai_provider: str = "openai"
+    openai_api_key: str = ""
+    openai_model: str = "gpt-4o-mini"
+    gemini_api_key: str = ""
+    gemini_model: str = "gemini-1.5-flash"
+
     @property
     def mysql_url(self) -> str:
         return (

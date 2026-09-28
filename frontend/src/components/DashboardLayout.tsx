@@ -1,8 +1,9 @@
 import { type ReactNode } from 'react';
+import { Outlet } from 'react-router-dom';
 import { Sidebar } from './Sidebar';
 import { useSpotlight } from '../../hooks/useSpotlight';
 
-interface Props { children: ReactNode; }
+interface Props { children?: ReactNode; }
 
 export function DashboardLayout({ children }: Props) {
   useSpotlight();
@@ -36,7 +37,7 @@ export function DashboardLayout({ children }: Props) {
 
         {/* Page content */}
         <main className="pt-14 min-h-screen px-space-xl py-space-lg">
-          {children}
+          {children ?? <Outlet />}
         </main>
       </div>
     </div>
