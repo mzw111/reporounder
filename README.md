@@ -143,9 +143,3 @@ openssl rand -hex 32
 | GET | `/api/v1/reviews/{id}/status` | JWT | Fetch analysis status |
 | WS | `/api/v1/reviews/{id}/ws?token=...` | JWT query token | Live findings and annotation events |
 
-## Interview talking points
-
-1. **Dual database ownership:** MySQL handles relational authorization; MongoDB handles evolving review documents. The service layer joins the authorization decision without duplicating membership data into every document.
-2. **Redis has three roles:** the List is a durable-enough work queue for the worker, Pub/Sub is the shared real-time event bus, and Redis connectivity is centralized behind one async client factory.
-3. **Async boundary:** the request returns a pending review immediately; a worker performs slow AI work and validates its output before publishing completion.
-4. **Realtime with fallback:** WebSockets provide low-latency updates across API instances through Redis Pub/Sub, while React Query polling keeps the product correct if a browser connection drops.
