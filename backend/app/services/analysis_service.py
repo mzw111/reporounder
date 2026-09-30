@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, ValidationError
 from app.core.config import settings
 from app.db.mongo import get_mongo_db
 from app.db.redis_client import get_redis
+from app.services.collab_service import publish_to_review
 from app.models.mongo_models import Finding, Review
 
 logger = logging.getLogger(__name__)
@@ -62,11 +63,18 @@ async def process_job(review_id: str) -> None:
 
     try:
         ai_response = call_ai(review_document["diff"])
+        findings_dicts = [finding.model_dump(mode="json") for finding in ai_response.findings]
         await update_review_status(
             review_id,
             status="complete",
-            findings=[finding.model_dump(mode="json") for finding in ai_response.findings],
+            findings=findings_dicts,
             error_message=None,
+        )
+        await publish_to_review(
+            get_redis(),
+            review_id,
+            "findings_ready",
+            {"finding_count": len(findings_dicts), "review_id": review_id},
         )
         logger.info("Analysis completed for review %s: %d findings", review_id, len(ai_response.findings))
     except Exception as exc:  # noqa: BLE001

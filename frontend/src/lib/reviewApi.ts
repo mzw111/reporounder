@@ -10,6 +10,15 @@ export interface ReviewFinding {
   suggestion: string
 }
 
+export interface ReviewAnnotation {
+  id: string
+  finding_id: string
+  author_id: string
+  author_name: string
+  content: string
+  created_at: string
+}
+
 export interface Review {
   id: string
   title: string
@@ -17,6 +26,7 @@ export interface Review {
   team_id: string | null
   status: 'pending' | 'complete' | 'error'
   findings: ReviewFinding[]
+  annotations: ReviewAnnotation[]
   created_at: string
   updated_at: string
 }

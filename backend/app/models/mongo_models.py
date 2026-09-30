@@ -20,6 +20,15 @@ class Finding(BaseModel):
     suggestion: str = Field(..., min_length=1)
 
 
+class Annotation(BaseModel):
+    id: str = Field(default_factory=lambda: str(uuid.uuid4()))
+    finding_id: str
+    author_id: str
+    author_name: str
+    content: str = Field(..., min_length=1, max_length=2000)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
 class Review(BaseModel):
     model_config = ConfigDict(extra="ignore")
 
@@ -30,6 +39,7 @@ class Review(BaseModel):
     diff: str = Field(..., min_length=1)
     status: ReviewStatus = "pending"
     findings: list[Finding] = Field(default_factory=list)
+    annotations: list[Annotation] = Field(default_factory=list)
     error_message: str | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

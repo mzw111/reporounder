@@ -13,8 +13,8 @@ router = APIRouter(prefix="/teams", tags=["teams"])
 def _team_error(exc: TeamError) -> HTTPException:
     detail = str(exc)
     code = status.HTTP_404_NOT_FOUND if "not found" in detail.lower() else status.HTTP_403_FORBIDDEN
-    if "already" in detail.lower() or "exists" in detail.lower():
-        code = status.HTTP_409_CONFLICT
+    if "already" in detail.lower():
+        code = status.HTTP_400_BAD_REQUEST
     return HTTPException(status_code=code, detail=detail)
 
 

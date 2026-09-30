@@ -1,6 +1,8 @@
 import { useParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAnalysisStatus } from '../hooks/useAnalysisStatus';
+import { useDiffSocket } from '../hooks/useDiffSocket';
 import { getReview } from '../lib/reviewApi';
 import ReactDiffViewer from 'react-diff-viewer-continued';
 import type { ReactElement } from 'react';
@@ -51,12 +53,24 @@ function parseUnifiedDiff(diff: string): ParsedDiff {
 
 export function ReviewDetailPage() {
   const { reviewId } = useParams();
+  const queryClient = useQueryClient();
+  const { isConnected, lastEvent } = useDiffSocket(reviewId ?? null);
   const reviewQuery = useQuery({
     queryKey: ['review', reviewId],
     queryFn: () => getReview(reviewId as string),
     enabled: Boolean(reviewId),
   });
   const statusQuery = useAnalysisStatus(reviewId ?? null, Boolean(reviewId));
+
+  useEffect(() => {
+    if (!reviewId || !lastEvent) return;
+    if (lastEvent.type === 'findings_ready' || lastEvent.type === 'annotation_added') {
+      void queryClient.invalidateQueries({ queryKey: ['review', reviewId] });
+    }
+    if (lastEvent.type === 'findings_ready') {
+      void queryClient.invalidateQueries({ queryKey: ['review-status', reviewId] });
+    }
+  }, [lastEvent, queryClient, reviewId]);
 
   if (!reviewId) {
     return <div className="text-on-surface">Review not found.</div>;
@@ -103,9 +117,13 @@ export function ReviewDetailPage() {
               <p className="font-mono text-label-md text-on-surface-variant">Review</p>
               <h1 className="text-headline-lg font-semibold text-on-surface">{review.title}</h1>
             </div>
-            <span className="rounded-full border border-outline-variant/50 bg-surface-container px-space-sm py-1 font-mono text-label-sm text-on-surface-variant">
-              {status}
-            </span>
+            <div className="flex items-center gap-space-sm">
+              <span className="rounded-full border border-outline-variant/50 bg-surface-container px-space-sm py-1 font-mono text-label-sm text-on-surface-variant">{status}</span>
+              <span className={`flex items-center gap-1.5 font-mono text-code-sm ${isConnected ? 'text-primary' : 'text-on-surface-variant'}`}>
+                <span className={`h-1.5 w-1.5 rounded-full ${isConnected ? 'bg-primary' : 'bg-outline'}`} />
+                {isConnected ? 'Live' : 'Connecting...'}
+              </span>
+            </div>
           </div>
         </div>
 

@@ -28,6 +28,7 @@ async def create_review_route(
         team_id=review.team_id,
         status=review.status,
         findings=review.findings,
+        annotations=review.annotations,
         created_at=review.created_at,
         updated_at=review.updated_at,
     )
@@ -51,6 +52,7 @@ async def list_reviews_route(
             team_id=review.team_id,
             status=review.status,
             findings=review.findings,
+            annotations=review.annotations,
             created_at=review.created_at,
             updated_at=review.updated_at,
         )
@@ -75,6 +77,7 @@ async def get_review_route(
         team_id=review.team_id,
         status=review.status,
         findings=review.findings,
+        annotations=review.annotations,
         created_at=review.created_at,
         updated_at=review.updated_at,
     )

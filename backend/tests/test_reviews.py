@@ -1,22 +1,11 @@
 import json
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import pytest
-from fastapi.testclient import TestClient
 
+from app.api.deps import get_current_user
 from app.main import app
 from app.models.mongo_models import Review
-from app.api.deps import get_current_user
-
-
-@pytest.fixture
-def client():
-    return TestClient(app)
-
-
-@pytest.fixture
-def auth_headers():
-    return {"Authorization": "Bearer test-token"}
 
 
 def test_create_review_enqueues_job_and_returns_pending(client, monkeypatch):
@@ -89,3 +78,38 @@ def test_ai_failure_sets_error_status():
     with patch("app.services.analysis_service.httpx.post", side_effect=Exception("network failure")):
         with pytest.raises(Exception):
             call_ai("diff")
+
+
+def test_create_review_with_team(client, test_user):
+    async def fake_create_review(*args, **kwargs):
+        return Review(
+            id="team-review-1",
+            user_id=test_user.id,
+            team_id="team-1",
+            title="Team review",
+            diff="diff --git a/x b/x\n+hello",
+            status="pending",
+            findings=[],
+            created_at="2024-01-01T00:00:00Z",
+            updated_at="2024-01-01T00:00:00Z",
+        )
+
+    with patch("app.api.v1.review_routes.create_review", new=fake_create_review):
+        response = client.post(
+            "/api/v1/reviews",
+            json={"title": "Team review", "diff": "abc", "team_id": "team-1"},
+        )
+
+    assert response.status_code == 201
+    assert response.json()["team_id"] == "team-1"
+
+
+def test_list_reviews_empty(client):
+    async def fake_list_reviews(*args, **kwargs):
+        return []
+
+    with patch("app.api.v1.review_routes.list_reviews", new=fake_list_reviews):
+        response = client.get("/api/v1/reviews")
+
+    assert response.status_code == 200
+    assert response.json() == []

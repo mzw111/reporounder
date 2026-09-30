@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.auth_routes import router as auth_router
+from app.api.v1.collab_routes import router as collab_router
 from app.api.v1.health import router as health_router
 from app.api.v1.review_routes import router as review_router
 from app.api.v1.team_routes import router as team_router
@@ -52,5 +53,6 @@ app.add_middleware(
 )
 app.include_router(health_router, prefix="/api/v1")
 app.include_router(auth_router, prefix="/api/v1")
+app.include_router(collab_router, prefix="/api/v1")
 app.include_router(review_router, prefix="/api/v1")
 app.include_router(team_router, prefix="/api/v1")

@@ -4,7 +4,7 @@ import logging
 from datetime import datetime, timezone
 
 from app.db.mongo import get_mongo_db
-from app.models.mongo_models import Review
+from app.models.mongo_models import Annotation, Review
 from app.models.sql_models import User
 from app.schemas.review import CreateReviewRequest, ReviewResponse, ReviewStatusResponse
 from app.services.analysis_service import enqueue_job
@@ -22,6 +22,7 @@ async def _serialize_review(review: Review) -> ReviewResponse:
         team_id=review.team_id,
         status=review.status,
         findings=review.findings,
+        annotations=review.annotations,
         created_at=review.created_at,
         updated_at=review.updated_at,
     )
@@ -81,6 +82,30 @@ async def list_reviews(current_user: User, db: Session, team_id: str | None = No
         query = {"$or": [{"user_id": current_user.id}, {"team_id": {"$in": user_team_ids(db, current_user.id)}}]}
     documents = await mongo_db.reviews.find(query).sort("created_at", -1).to_list(length=50)
     return [Review.model_validate(document) for document in documents]
+
+
+async def save_annotation(
+    db,
+    review_id: str,
+    finding_id: str,
+    author_id: str,
+    author_name: str,
+    content: str,
+) -> dict:
+    annotation = Annotation(
+        finding_id=finding_id,
+        author_id=author_id,
+        author_name=author_name,
+        content=content,
+    )
+    annotation_data = annotation.model_dump(mode="json")
+    result = await db.reviews.update_one(
+        {"id": review_id},
+        {"$push": {"annotations": annotation_data}},
+    )
+    if result.matched_count == 0:
+        raise ValueError("Review not found")
+    return annotation_data
 
 
 async def update_review_status(
