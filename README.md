@@ -143,3 +143,5 @@ openssl rand -hex 32
 | GET | `/api/v1/reviews/{id}/status` | JWT | Fetch analysis status |
 | WS | `/api/v1/reviews/{id}/ws?token=...` | JWT query token | Live findings and annotation events |
 
+
+some future work is still pending
